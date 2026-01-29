@@ -1,0 +1,111 @@
+
+---
+
+#Installin apache2 serverklient1 masinasse
+- hosts: webservers
+  tasks:
+    - name: installeerime apache2 serverklient1 (Debian)
+      apt:
+        name: apache2
+        state: latest
+        update_cache: yes
+      when: ansible_distribution == "Debian"
+
+#Installin HTTP serverklient2 masinasse
+    - name: installeerime httpd serverklient2 (CentOS)
+      dnf:
+        name: httpd
+        state: latest
+        update_cache: yes
+      when: ansible_distribution == "CentOS"
+
+#Luban ja käivitan HTTP severklient2 masinas
+    - name: Enable and start HTTP (CentOS-il)
+      ansible.builtin.service:
+        name: httpd
+        state: started
+        enabled: true
+      when: ansible_distribution == "CentOS"
+
+#Luban HTTP tulemüürist läbi
+    - name: Allow HTTP through firewall
+      ansible.posix.firewalld:
+        service: http
+        permanent: true
+        state: enabled
+        immediate: true
+      when: ansible_distribution == "CentOS"
+
+#Muudan kataloogi /home/roger/ õigusi serverklient1 masinas
+    - name: Muudame /home/roger/ kataloogi oigused (Debian) (0711)
+      file:
+        path: /home/roger1
+        mode: 0711
+      when: ansible_distribution == "Debian"
+
+#Muudan kataloogi /home/roger/ õigusi serverklient2 masinas
+    - name: Muudame /home/roger/ kataloogi oigused (CentOS) (0711)
+      file:
+        path: /home/roger2
+        mode: 0711
+      when: ansible_distribution == "CentOS"
+
+#Loon public_html kataloogi serverklient1 masinas kasutajale roger1
+    - name: Loome public_html kataloogi roger1-ile (Debian)
+      file:
+        path: /home/roger1/public_html
+        owner: roger1
+        group: roger1
+        mode: 0755
+        state: directory
+      when: ansible_distribution == "Debian"
+
+#Loon public_html kataloogi serverklient2 masinas kasutajale roger2
+    - name: Loome public_html kataloogi roger2-ile (CentOS)
+      file:
+        path: /home/roger2/public_html
+        owner: roger2
+        group: roger2
+        mode: 0755
+        state: directory
+      when: ansible_distribution == "CentOS"
+
+#"Require method GET POST OPTIONS" asendan "Require all granted" serverklient1 masina /etc/apache2/mods-available/userdir.conf failis
+    - name: Muudame userdir.conf 'Require method GET POST OPTIONS' asendame 'Require all granted'
+      lineinfile:
+        dest: /etc/apache2/mods-available/userdir.conf
+        regexp: "Require method GET POST OPTIONS"
+        line: "Require all granted"
+      when: ansible_distribution == "Debian"
+
+#Lubame userdir serverklient1 masinale, kasutades apache2_module
+    - name: Lubame userdir Apache2 moodul
+      apache2_module:
+        name: userdir
+        state: present
+      when: ansible_distribution == "Debian"
+
+#Serverklient1 masinas kopeerin index.html /var/www/html/ kaustast /home/roger1/public_html/ kausta
+    - name: Kopeerime index.html roger1-ile kodus_public_html kataloogi
+      copy:
+        src: /var/www/html/index.html
+        dest: /home/roger1/public_html/
+        remote_src: yes
+        owner: roger1
+        group: roger1
+      when: ansible_distribution == "Debian"
+
+#Muudan serverklint1 kasutaja roger1 index.html omapäraseks asendades fraasi "Apache2 Debian Default Page" fraasiga "Rogeri kodulehekülg"
+    - name: roger1 index.html muutmine omapäraseks
+      lineinfile:
+        dest: /home/roger1/public_html/index.html
+        regexp: "Apache2 Debian Default Page"
+        line: "Rogeri kodulehekülg"
+      when: ansible_distribution == "Debian"
+
+#Taaskäivitan apache2 serverklient1 masinas
+    - name: Alglaadime apache2 (Debian)
+      service:
+        name: apache2
+        state: restarted
+      when: ansible_distribution == "Debian"
