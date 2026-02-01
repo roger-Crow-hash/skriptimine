@@ -1,0 +1,28 @@
+---
+
+#Eemaldan PHP apt serverklient1 masinast
+- hosts: serverklient1
+  tasks:
+    - name: Eemaldame PHP
+      apt:
+        name: 
+          - php
+          - libapache2-mod-php
+          - php-mysql
+          - php-cli
+          - php-common
+        state: absent
+        purge: yes
+        autoremove: yes
+
+#Teen apache2 taaskäivituse
+    - name: Alglaadimine apache2
+      service:
+        name: apache2
+        state: restarted
+
+#Eemaldan phpinfo.php faili kaustast /var/www/html
+    - name: Loome faili phpinfo.php
+      file:
+        path: /var/www/html/phpinfo.php
+        state: absent

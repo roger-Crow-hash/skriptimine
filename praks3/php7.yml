@@ -1,0 +1,47 @@
+
+---
+
+#Installin hiljutisema php versiooni serverklient1 masinale
+- hosts: serverklient1
+  tasks:
+    - name: installeerime php
+      apt: 
+        name: php
+        update_cache: yes
+        state: latest
+
+#Installin hiljutisema libapache2-mode-php versiooni serverklient1 masinale
+    - name: installeerime libapache-mod-php
+      apt:
+        name: libapache2-mod-php
+        update_cache: yes
+        state: latest
+
+#Installin hiljutisema php-mysql versiooni serverklient1 masinale
+    - name: installeerime php-mysql
+      apt:
+        name: php-mysql
+        update_cache: yes
+        state: latest
+
+#Teen apache2 taaskäivituse
+    - name: Alglaadimine apache2
+      service:
+        name: apache2
+        state: restarted
+
+#Loon phpinfo.php faili kausta /var/www/html
+    - name: Loome faili phpinfo.php
+      file:
+        path: /var/www/html/phpinfo.php
+        state: touch
+
+#Kirjutan faili /var/www/html/phpinfo.php PHP töö kontrollimise koodi
+    - name: Kirjutan faili phpinfo.php töö kontrollimise koodi
+      blockinfile:
+        dest: /var/www/html/phpinfo.php
+        block: |
+          <?php
+          phpinfo();
+          ?>
+        marker: ""
