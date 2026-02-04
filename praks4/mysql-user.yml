@@ -1,0 +1,35 @@
+---
+#Paigaldame PyMySQL, et saaksime root kasutaja seadmeid muuta
+- hosts: serverklient1
+  tasks:
+    - name: Paigaldame PyMySQL
+      apt:
+        name: python3-pymysql
+        state: present
+        update_cache: yes
+
+#Seame root kasutaja parooli kasutades caching_sha2_password
+    - name: Seame root parooli kasutades caching_sha2_password (MySQL 8)
+      community.mysql.mysql_query:
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        query: |
+          ALTER USER 'root'@'localhost' IDENTIFIED WITH caching_sha2_password BY 'qwerty';
+
+#Seame root kasutaja privileegid kasudates mysql_query moodulit GRANT ALL peale
+    - name: Seame root privileegid GRANT ALL
+      community.mysql.mysql_query:
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        query: |
+          GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;
+
+#Salvestame MySQL root ühenduse andmed faili /root/.my.cnf, et saaks kergemini logida sisse
+    - name: Salvestame MySQL root ühenduse andmed faili /root/.my.cnf
+      copy:
+        dest: /root/.my.cnf
+        owner: root
+        group: root
+        mode: '0600'
+        content: |
+          [client]
+          user=root
+          password=qwerty
