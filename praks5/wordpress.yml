@@ -1,0 +1,99 @@
+---
+- name: WordPress_Andmebaasi seadistamine
+  hosts: serverklient1
+  become: yes
+  tasks:
+#Paigaldan python3-pymysql tööks
+    - name: Paigaldame python3-pymysql
+      apt:
+        name: python3-pymysql
+        state: present
+        update_cache: yes
+
+#Loome conf faili kausta /etc/mysql/conf.d/, et saaks hiljem kasutajaid luua
+    - name: Loome conf faili et sisse lülitada mysql_natibe_password plugin
+      copy:
+        dest: /etc/mysql/conf.d/enable-mysql-native-password.cnf
+        content: |
+          [mysqld]
+          mysql_native_password=ON
+
+#Taaskäivitame mysql teenuse, et teenus loeks sisse meie tehtud muudatused
+    - name: Taaskäivita mysql teenus, et loodud conf file sisse loetaks
+      service:
+        name: mysql
+        state: restarted
+
+#Loome andmebaasi nimega wpdatabase wordpressi jaoks
+    - name: Loome andmebaas nimega-wpdatabase
+      mysql_db:
+        name: wpdatabase
+        state: present
+#Loome kasutaja nimega wpuser lisades ta kõigide õigustega gruppi wpdatabase
+    - name: Loome kasutaja nimega-wpuser parool-qwerty
+      mysql_user:
+        name: wpuser
+        password: qwerty
+        priv: "wpdatabase.*:ALL,GRANT"
+        state: present
+        check_implicit_admin: yes
+
+#Laeme alla WordPressi /tmp/ kausta, kasutades get_url moodulit
+    - name: Laeme alla WordPressi
+      get_url:
+        url: https://wordpress.org/latest.tar.gz
+        dest: /tmp/wordpress.tar.gz
+
+#Pakkime allatõmmatud faili lahti kausta /var/www/htmk/
+    - name: Pakkime WordPressi lahti
+      unarchive:
+        src: /tmp/wordpress.tar.gz
+        dest: /var/www/html/
+        remote_src: yes
+
+#Kopeerime kaustast /var/www/html/wordpress faili wp-config-sample.php samasse kausta nimega wp-config.php
+    - name: Kopeerime wp-config-sample.php kui wp-config.php vajaliku kohta
+      copy:
+        src: /var/www/html/wordpress/wp-config-sample.php
+        dest: /var/www/html/wordpress/wp-config.php
+        remote_src: yes
+
+#Loodud wp-config.php failis muudame teksti, et anda andmebaasile nime
+    - name: Määrame andmebaasi nime
+      lineinfile:
+        path: /var/www/html/wordpress/wp-config.php
+        regexp: "database_name_here"
+        line: "define('DB_NAME', 'wpdatabase');"
+
+#Loodud wp-config.php failis muudame teksti, et anda andmebaasis kasutajale nime
+    - name: Määrame andmebaasi kasutajanime
+      lineinfile:
+        path: /var/www/html/wordpress/wp-config.php
+        regexp: "username_here"
+        line: "define('DB_USER', 'wpuser');"
+
+#Loodud wp-config.php failis muudame teksti, et anda andmebaasis kasutajale parooli
+    - name: Määrame andmebaasi kasutaja parooli
+      lineinfile:
+        path: /var/www/html/wordpress/wp-config.php
+        regexp: "password_here"
+        line: "define('DB_PASSWORD', 'qwerty');"
+
+#Peale muudatuste tegemist teeme apache2 taaskäivituse, et muudatused jõustuksid
+    - name: Taaskäivita Apache teenus
+      service:
+        name: apache2
+        state: restarted
+
+#Lean alla wp-cli kasutades moodulit get_url
+    - name: Laeme alla wp-cli
+      get_url:
+        url: https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+        dest: /usr/local/bin/wp
+        mode: '0755'
+
+#Käivitan WordPressi automaatse installimise enda määratud omadustega
+    - name: Käivitan WordPressi automaatse paigalduse
+      ansible.builtin.command: wp core install --url=http://192.168.41/wordpress --title="admin wordpressi sait" --admin_user=admin --admin_password=qwerty --admin_email=admin@example.com --allow-root
+      args:
+        chdir: /var/www/html/wordpress
